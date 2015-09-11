@@ -5,16 +5,17 @@
 #include "FFState.h"
 #include "moses/FF/JoinScore/TrieSearch.h"
 #include "moses/FF/MorphoTrie/utils.h"
+#include "moses/LM/Ken.h"
 
 namespace Moses
 {
 
-class MorphoLMState : public FFState
+class MorphoNgramLMState : public FFState
 {
   std::vector<const Factor*> m_lastWords;
   std::string m_unfinishedWord;
 public:
-  MorphoLMState(const std::vector<const Factor*> &context)
+  MorphoNgramLMState(const std::vector<const Factor*> &context)
     :m_lastWords(context) {
   }
 
@@ -28,7 +29,7 @@ public:
   { return m_lastWords; }
 };
 
-class MorphoLM : public StatefulFeatureFunction
+class MorphoNgramLM : public LanguageModelKen
 {
 protected:
 	std::string m_path;
@@ -39,7 +40,7 @@ protected:
     const Factor *m_sentenceStart, *m_sentenceEnd; //! Contains factors which represents the beging and end words for this LM.
 
 public:
-  MorphoLM(const std::string &line);
+  MorphoNgramLM(const std::string &line);
 
   bool IsUseable(const FactorMask &mask) const {
     return true;

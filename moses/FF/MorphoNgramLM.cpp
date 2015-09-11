@@ -1,5 +1,5 @@
 #include <vector>
-#include "MorphoLM.h"
+#include "MorphoNgramLM.h"
 #include "moses/ScoreComponentCollection.h"
 #include "moses/Hypothesis.h"
 #include "moses/FactorCollection.h"
@@ -12,9 +12,9 @@ using namespace std;
 
 namespace Moses
 {
-int MorphoLMState::Compare(const FFState& other) const
+int MorphoNgramLMState::Compare(const FFState& other) const
 {
-  const MorphoLMState &otherState = static_cast<const MorphoLMState&>(other);
+  const MorphoNgramLMState &otherState = static_cast<const MorphoNgramLMState&>(other);
 
   if (m_lastWords < otherState.m_lastWords) {
 	  return -1;
@@ -35,7 +35,7 @@ int MorphoLMState::Compare(const FFState& other) const
 }
 
 ////////////////////////////////////////////////////////////////
-MorphoLM::MorphoLM(const std::string &line)
+MorphoNgramLM::MorphoNgramLM(const std::string &line)
 :StatefulFeatureFunction(1, line)
 ,m_order(0)
 ,m_factorType(0)
@@ -52,26 +52,26 @@ MorphoLM::MorphoLM(const std::string &line)
   m_sentenceEnd = fc.AddFactor("</s>", false);
 }
 
-const FFState* MorphoLM::EmptyHypothesisState(const InputType &input) const {
+const FFState* MorphoNgramLM::EmptyHypothesisState(const InputType &input) const {
   std::vector<const Factor*> context;
   context.push_back(m_sentenceStart);
 
-  return new MorphoLMState(context);
+  return new MorphoNgramLMState(context);
 }
 
-void MorphoLM::Load()
+void MorphoNgramLM::Load()
 {
   root = new MorphTrie<string, float>;
   LoadLm(m_path, root);
 }
 
-void MorphoLM::EvaluateInIsolation(const Phrase &source
+void MorphoNgramLM::EvaluateInIsolation(const Phrase &source
     , const TargetPhrase &targetPhrase
     , ScoreComponentCollection &scoreBreakdown
     , ScoreComponentCollection &estimatedFutureScore) const
 {}
 
-void MorphoLM::EvaluateWithSourceContext(const InputType &input
+void MorphoNgramLM::EvaluateWithSourceContext(const InputType &input
     , const InputPath &inputPath
     , const TargetPhrase &targetPhrase
     , const StackVec *stackVec
@@ -79,11 +79,11 @@ void MorphoLM::EvaluateWithSourceContext(const InputType &input
     , ScoreComponentCollection *estimatedFutureScore) const
 {}
 
-void MorphoLM::EvaluateTranslationOptionListWithSourceContext(const InputType &input
+void MorphoNgramLM::EvaluateTranslationOptionListWithSourceContext(const InputType &input
     , const TranslationOptionList &translationOptionList) const
 {}
 
-FFState* MorphoLM::EvaluateWhenApplied(
+FFState* MorphoNgramLM::EvaluateWhenApplied(
   const Hypothesis& cur_hypo,
   const FFState* prev_state,
   ScoreComponentCollection* accumulator) const
@@ -96,7 +96,7 @@ FFState* MorphoLM::EvaluateWhenApplied(
 
   assert(prev_state);
 
-  const MorphoLMState *prevMorphState = static_cast<const MorphoLMState*>(prev_state);
+  const MorphoNgramLMState *prevMorphState = static_cast<const MorphoNgramLMState*>(prev_state);
   std::vector<const Factor*> context(prevMorphState->GetPhrase());
 
   for (size_t pos = targetRange.GetStartPos(); pos < targetLen; ++pos){
@@ -109,10 +109,10 @@ FFState* MorphoLM::EvaluateWhenApplied(
   accumulator->PlusEquals(this, score);
 
 
-  return new MorphoLMState(context);
+  return new MorphoNgramLMState(context);
 }
 
-FFState* MorphoLM::EvaluateWhenApplied(
+FFState* MorphoNgramLM::EvaluateWhenApplied(
   const ChartHypothesis& /* cur_hypo */,
   int /* featureID - used to index the state in the previous hypotheses */,
   ScoreComponentCollection* accumulator) const
@@ -121,7 +121,7 @@ FFState* MorphoLM::EvaluateWhenApplied(
   return NULL;
 }
 
-void MorphoLM::SetParameter(const std::string& key, const std::string& value)
+void MorphoNgramLM::SetParameter(const std::string& key, const std::string& value)
 {
   if (key == "path") {
     m_path = value;
