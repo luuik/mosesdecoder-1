@@ -19,6 +19,8 @@ class Node
         void addSubnode(Node* subnode);
 
         vector<Node*> getSubnodes();
+        ValueClass getProb();
+        ValueClass getBackOff();
 
     private:
         vector<Node*> subnodes;
@@ -66,6 +68,18 @@ Node<KeyClass, ValueClass>* Node<KeyClass, ValueClass>::findSub(const KeyClass& 
         }
     }
     return NULL;
+}
+
+template<class KeyClass, class ValueClass>
+ValueClass Node<KeyClass, ValueClass>::getProb() 
+{
+    return prob;
+}
+
+template<class KeyClass, class ValueClass>
+ValueClass Node<KeyClass, ValueClass>::getBackOff() 
+{
+    return backoff;
 }
 
 #endif /* end of include guard: NODE_H_ */

@@ -52,8 +52,9 @@ Node<KeyClass, ValueClass>* MorphTrie<KeyClass, ValueClass>::getProb(const vecto
         Node<KeyClass, ValueClass>* cNode = root->findSub(cKey);
         if (cNode == NULL)
         {
-            return 0.0;
+            return NULL;
         }
+
         cRoot = cNode;
     }
     return cRoot;

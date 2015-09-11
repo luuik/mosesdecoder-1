@@ -4,54 +4,46 @@
 #include <string>
 #include <vector>
 #include "moses/Util.h"
+#include "moses/Factor.h"
 
 using namespace std;
 
+inline void ParseLineByChar(string& line, char c, vector<string>& substrings) {
+    size_t i = 0;
+    size_t j = line.find(c);
+
+    while (j != string::npos) {
+        substrings.push_back(line.substr(i, j-i));
+        i = ++j;
+        j = line.find(c, j);
+
+        if (j == string::npos)
+            substrings.push_back(line.substr(i, line.length()));
+    }
+}
+
 inline void LoadLm(string lmPath, MorphTrie<string, float>* root) {
   ifstream infile(lmPath.c_str());
-	string line;
-	char c = '\t';
-	while (getline(infile, line)) {
-		string::size_type i = 0;
-	    string::size_type j = line.find(c);
+    string line;
+    while (getline(infile, line)) {
+        vector<string> substrings;
+        ParseLineByChar(line, '\t', substrings);
 
-	    vector<string> substrings;
-	    while (j != string::npos) {
-	        substrings.push_back(line.substr(i, j-i));
-	        i = ++j;
-	        j = line.find(c, j);
+        if (substrings.size() < 2)
+               continue;
 
-	        if (j == string::npos)
-	        	substrings.push_back(line.substr(i, line.length()));
-	    }
+        float weight = Moses::Scan<float>(substrings[0]);
 
-	    if (substrings.size() < 2)
-	   		continue;
-
-	    float weight = Moses::Scan<float>(substrings[0]);
-        
-        char d = ' ';
-        string ngram = substrings[1];
-        i = 0;
-        j = ngram.find(c);
-	    
         vector<string> key;
-        while (j != string::npos) {
-            key.push_back(ngram.substr(i, j-i));
-            i = ++j;
-            j = ngram.find(d, j);
-
-            if (j == string::npos)
-                key.push_back(ngram.substr(i, ngram.length()));
-        }
+        ParseLineByChar(substrings[1], ' ', key);
 
         float backoff = 0.f;
         if (substrings.size() == 3)
-	  backoff = Moses::Scan<float>(substrings[2]);
+            backoff = Moses::Scan<float>(substrings[2]);
 
 
-	   reverse(key.begin(), key.end());
-	   root->insert(key, weight, backoff);
-	}
+       //reverse(key.begin(), key.end());
+       root->insert(key, weight, backoff);
+    }
 
 }

@@ -3,6 +3,7 @@
 #include "moses/ScoreComponentCollection.h"
 #include "moses/Hypothesis.h"
 #include "moses/FactorCollection.h"
+#include "moses/InputFileStream.h"
 #include "util/exception.hh"
 
 #include "moses/FF/JoinScore/TrieSearch.h"
@@ -40,6 +41,7 @@ MorphoLM::MorphoLM(const std::string &line)
 ,m_order(0)
 ,m_factorType(0)
 ,m_marker("+")
+,m_binLM(false)
 {
   ReadParameters();
 
@@ -56,13 +58,35 @@ const FFState* MorphoLM::EmptyHypothesisState(const InputType &input) const {
   std::vector<const Factor*> context;
   context.push_back(m_sentenceStart);
 
-  return new MorphoLMState(context);
+  return new MorphoLMState(context, "");
 }
 
 void MorphoLM::Load()
 {
-  root = new MorphTrie<string, float>;
-  LoadLm(m_path, root);
+  if (m_binLM) {
+	  m_trieSearch = new TrieSearch<LMScores, NGRAM>;
+	  m_trieSearch->Create(m_path);
+
+	  // vocab
+	  FactorCollection &fc = FactorCollection::Instance();
+
+	  m_vocab = new std::map<const Factor *, uint64_t>;
+
+	  InputFileStream vocabStrme(m_path + ".vocab");
+	  string line;
+	  while (getline(vocabStrme, line)) {
+		  vector<string> toks = Tokenize(line);
+		  assert(toks.size() == 2);
+
+		  const Factor *factor = fc.AddFactor(toks[0], false);
+		  uint64_t vocabId = Scan<uint64_t>(toks[1]);
+		  (*m_vocab)[factor] = vocabId;
+	  }
+  }
+  else {
+	  root = new MorphTrie<string, float>;
+	  LoadLm(m_path, root);
+  }
 }
 
 void MorphoLM::EvaluateInIsolation(const Phrase &source
@@ -90,53 +114,76 @@ FFState* MorphoLM::EvaluateWhenApplied(
 {
   // dense scores
   float score = 0;
-  bool prevIsMorph = false;
+  float bad_score = -10000000000000.0;
   size_t targetLen = cur_hypo.GetCurrTargetPhrase().GetSize();
   const WordsRange &targetRange = cur_hypo.GetCurrTargetWordsRange();
 
   assert(prev_state);
 
   const MorphoLMState *prevMorphState = static_cast<const MorphoLMState*>(prev_state);
+
+  bool prevIsMorph = prevMorphState->GetPrevIsMorph();
+  string prevMorph = prevMorphState->GetPrevMorph();
+  bool wasBad = false;
   std::vector<const Factor*> context(prevMorphState->GetPhrase());
 
+  vector<string> stringContext;
+  if (!prevIsMorph)
+    stringContext.push_back(prevMorph);
+          
   for (size_t pos = targetRange.GetStartPos(); pos < targetLen; ++pos){
 	  const Word &word = cur_hypo.GetWord(pos);
 	  const Factor *factor = word[m_factorType];
 	  string str = factor->GetString().as_string();
-          if (str[0] == '+' && prevIsMorph == true) {
-            //TODO combine morphemes
-            //prevFactor = context.pop(); //Get the last one
-            //prevFactor.pop_back; //Get rid of the trailing +
-            //factor = ; // Get rid of the starting +
-            //factor = prevFactor + factor;
-            //TODO score
-          }
-          else if (str[0] == '+' && prevIsMorph == false) {
-            //TODO Give bad score
-          }
-          else if (str[0] != '+' && prevIsMorph == true) {
-            //TODO GIve bad score
-          }
-          else {
-            //Yay! Easy ... just words
-          }
-          if (str.at(str.length() -1) == '+') {
-        	  prevIsMorph = true;
+        if (str[0] == '+' && prevIsMorph == true) {
+            string prevClear = context.back()->GetString().as_string();
+            str.erase(str.begin());
+            str = prevClear + str;
+        }
+        else if (str[0] == '+' && prevIsMorph == false) {
+          str.erase(str.begin()); //Get rid of starting +
+          score += bad_score;
+          wasBad = true;
+        }
+        else if (str[0] != '+' && prevIsMorph == true) {
+          score += bad_score;
+          wasBad = true;
+        }
+        else {
+          //Yay! Easy ... just words
+        }
+        
+        if (str[str.length() - 1] == '+') {
+            str.erase(str.end() - 1);
+            prevIsMorph = true;
+            prevMorph = str;
             //TODO estimate score of the rest
-          }
-          else {
-        	  prevIsMorph = false;
-          }
-	  context.push_back(factor);
-	  // score TODO
+        }
+        else {
+          prevIsMorph = false;
+          prevMorph = "";
+           // TODO: Subtract itermediate?
+        }
+    
+    // If the current hypotheis is null, ignore it (just a +, start of this method, etc.)
+    if (str.length() > 0) {
+      stringContext.push_back(str);
+    }
+    if (!wasBad) {
+      score += KneserNey(stringContext);
+    }
+    wasBad = false;
+
+    //TODO: Subtract 
 
   }
 
   // finished scoring. set score
   accumulator->PlusEquals(this, score);
 
+  // TODO: Subtract itermediate?
 
-  return new MorphoLMState(context);
+  return new MorphoLMState(context, prevMorph);
 }
 
 FFState* MorphoLM::EvaluateWhenApplied(
@@ -146,6 +193,31 @@ FFState* MorphoLM::EvaluateWhenApplied(
 {
   abort();
   return NULL;
+}
+
+float MorphoLM::KneserNey(std::vector<string>& context) const
+{
+  float oov = -10000000000.0;
+  float backoff = 0.0;
+
+  Node<string, float>* result = root->getProb(context);
+
+
+  if (result) 
+    return result->getProb();
+  if (context.size() > 1) {
+    std::vector<string> backOffContext(context.begin(), context.end() - 1);
+    
+    result = root->getProb(backOffContext);
+    if (result)
+      backoff = result->getBackOff();
+
+    context.erase(context.begin());
+
+    return (backoff + MorphoLM::KneserNey(context));
+  }
+  
+  return oov;
 }
 
 void MorphoLM::SetParameter(const std::string& key, const std::string& value)
@@ -161,6 +233,9 @@ void MorphoLM::SetParameter(const std::string& key, const std::string& value)
   }
   else if (key == "marker") {
 	  m_marker = value;
+  }
+  else if (key == "binary") {
+	  m_binLM = Scan<bool>(value);
   }
   else {
     StatefulFeatureFunction::SetParameter(key, value);

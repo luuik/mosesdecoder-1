@@ -18,8 +18,12 @@ class MorphoLMState : public FFState
   std::vector<const Factor*> m_lastWords;
   std::string m_unfinishedWord;
 public:
-  MorphoLMState(const std::vector<const Factor*> &context)
-    :m_lastWords(context) {
+
+  MorphoLMState(const std::vector<const Factor*> &context,
+		  	  const std::string &unfinishedWord)
+    :m_lastWords(context)
+  	,m_unfinishedWord(unfinishedWord)
+  {
   }
 
   int Compare(const FFState& other) const;
@@ -30,6 +34,12 @@ public:
 
   const std::vector<const Factor*> &GetPhrase() const
   { return m_lastWords; }
+
+  bool GetPrevIsMorph() const
+  { return !m_unfinishedWord.empty(); }
+
+  const std::string &GetPrevMorph() const
+  { return m_unfinishedWord; }
 };
 
 class MorphoLM : public StatefulFeatureFunction
@@ -39,8 +49,15 @@ protected:
 	size_t m_order;
     FactorType	m_factorType;
     std::string m_marker;
+    bool m_binLM;
 
-    //TrieSearch<LMScores, std::string> m_trieSearch;
+    // binary trie
+    std::map<const Factor*, uint64_t> *m_vocab;
+
+    typedef std::vector<uint64_t> NGRAM;
+    TrieSearch<LMScores, NGRAM> *m_trieSearch;
+
+    // in-mem trie
     MorphTrie<string, float>* root;
 
     const Factor *m_sentenceStart, *m_sentenceEnd; //! Contains factors which represents the beging and end words for this LM.
@@ -78,6 +95,8 @@ public:
     const ChartHypothesis& /* cur_hypo */,
     int /* featureID - used to index the state in the previous hypotheses */,
     ScoreComponentCollection* accumulator) const;
+
+  float KneserNey(std::vector<string>& context) const;
 
   void SetParameter(const std::string& key, const std::string& value);
 
