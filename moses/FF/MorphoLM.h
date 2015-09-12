@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <string>
 #include "StatefulFeatureFunction.h"
 #include "FFState.h"
@@ -10,6 +11,19 @@ namespace Moses
 {
 struct LMScores
 {
+	LMScores()
+	{}
+
+	LMScores(const LMScores &copy)
+	:prob(copy.prob)
+	,backoff(copy.backoff)
+	{}
+
+	LMScores(float inProb, float inBackoff)
+	:prob(inProb)
+	,backoff(inBackoff)
+	{}
+
 	float prob, backoff;
 };
 
@@ -17,12 +31,15 @@ class MorphoLMState : public FFState
 {
   std::vector<const Factor*> m_lastWords;
   std::string m_unfinishedWord;
+  float m_unfurnishedScore;
+  float m_prevScore;
 public:
-
   MorphoLMState(const std::vector<const Factor*> &context,
-		  	  const std::string &unfinishedWord)
+		  	  const std::string &unfinished, float score)
     :m_lastWords(context)
-  	,m_unfinishedWord(unfinishedWord)
+  	,m_unfinishedWord(unfinished)
+	,m_unfurnishedScore(0)
+        ,m_prevScore(score)
   {
   }
 
@@ -39,7 +56,18 @@ public:
   { return !m_unfinishedWord.empty(); }
 
   const std::string &GetPrevMorph() const
-  { return m_unfinishedWord; }
+  {
+	  return m_unfinishedWord;
+  }
+
+  float GetPrevScore() const
+  { return m_prevScore; }
+
+  void SetPrevScore(float score)
+  {
+      m_prevScore = score;
+  }
+
 };
 
 class MorphoLM : public StatefulFeatureFunction
@@ -50,6 +78,7 @@ protected:
     FactorType	m_factorType;
     std::string m_marker;
     bool m_binLM;
+    float m_oov;
 
     // binary trie
     std::map<const Factor*, uint64_t> *m_vocab;
@@ -58,9 +87,12 @@ protected:
     TrieSearch<LMScores, NGRAM> *m_trieSearch;
 
     // in-mem trie
-    MorphTrie<string, float>* root;
+    MorphTrie<const Factor*, LMScores>* root;
 
     const Factor *m_sentenceStart, *m_sentenceEnd; //! Contains factors which represents the beging and end words for this LM.
+
+    void SetContext(std::vector<std::string>  &context, const std::vector<const Factor*> &phrase) const;
+    void SetContext2(const std::vector<std::string>  &context, std::vector<const Factor*> &phrase) const;
 
 public:
   MorphoLM(const std::string &line);
@@ -96,7 +128,7 @@ public:
     int /* featureID - used to index the state in the previous hypotheses */,
     ScoreComponentCollection* accumulator) const;
 
-  float KneserNey(std::vector<string>& context) const;
+  float Score(std::vector<const Factor*> context) const;
 
   void SetParameter(const std::string& key, const std::string& value);
 

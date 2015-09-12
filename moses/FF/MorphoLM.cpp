@@ -58,7 +58,7 @@ const FFState* MorphoLM::EmptyHypothesisState(const InputType &input) const {
   std::vector<const Factor*> context;
   context.push_back(m_sentenceStart);
 
-  return new MorphoLMState(context, "");
+  return new MorphoLMState(context, "", 0.0);
 }
 
 void MorphoLM::Load()
@@ -84,8 +84,49 @@ void MorphoLM::Load()
 	  }
   }
   else {
-	  root = new MorphTrie<string, float>;
-	  LoadLm(m_path, root);
+	  FactorCollection &fc = FactorCollection::Instance();
+	  root = new MorphTrie<const Factor*, LMScores>;
+
+	  InputFileStream infile(m_path);
+	  size_t lineNum = 0;
+	  string line;
+	  while (getline(infile, line)) {
+		  if (++lineNum % 10000 == 0) {
+			  cerr << lineNum << " ";
+		  }
+
+		  vector<string> substrings;
+		  Tokenize(substrings, line, "\t");
+
+		  if (substrings.size() < 2)
+			   continue;
+
+		  assert(substrings.size() == 2 || substrings.size() == 3);
+
+		  float prob = Moses::Scan<float>(substrings[0]);
+		  if (substrings[1] == "<unk>") {
+			  m_oov = prob;
+			  continue;
+		  }
+
+		  float backoff = 0.f;
+		  if (substrings.size() == 3)
+			backoff = Moses::Scan<float>(substrings[2]);
+
+		  // ngram
+		  vector<string> key;
+		  Tokenize(key, substrings[1], " ");
+
+		  vector<const Factor*> factorKey;
+		  for (int i = 0; i < key.size(); ++i)
+			  factorKey.push_back(fc.AddFactor(key[i], false));
+
+
+	   //reverse(key.begin(), key.end());
+		  root->insert(factorKey, LMScores(prob, backoff));
+	  }
+
+	  //LoadLm(m_path, root, m_oov);
   }
 }
 
@@ -114,9 +155,9 @@ FFState* MorphoLM::EvaluateWhenApplied(
 {
   // dense scores
   float score = 0;
-  float bad_score = -10000000000000.0;
+  float prev_score = 0.0;
+  float ngramScore = 0.0;
   size_t targetLen = cur_hypo.GetCurrTargetPhrase().GetSize();
-  const WordsRange &targetRange = cur_hypo.GetCurrTargetWordsRange();
 
   assert(prev_state);
 
@@ -124,66 +165,105 @@ FFState* MorphoLM::EvaluateWhenApplied(
 
   bool prevIsMorph = prevMorphState->GetPrevIsMorph();
   string prevMorph = prevMorphState->GetPrevMorph();
-  bool wasBad = false;
-  std::vector<const Factor*> context(prevMorphState->GetPhrase());
+  prev_score = prevMorphState->GetPrevScore();
 
-  vector<string> stringContext;
-  if (!prevIsMorph)
-    stringContext.push_back(prevMorph);
-          
-  for (size_t pos = targetRange.GetStartPos(); pos < targetLen; ++pos){
-	  const Word &word = cur_hypo.GetWord(pos);
+  vector<const Factor*> context = prevMorphState->GetPhrase();
+
+
+
+  //vector<string> stringContext;
+  //SetContext(stringContext, prevMorphState->GetPhrase());
+  FactorCollection &fc = FactorCollection::Instance();
+  for (size_t pos = 0; pos < targetLen; ++pos){
+	  const Word &word = cur_hypo.GetCurrWord(pos);
 	  const Factor *factor = word[m_factorType];
 	  string str = factor->GetString().as_string();
-        if (str[0] == '+' && prevIsMorph == true) {
-            string prevClear = context.back()->GetString().as_string();
+
+	  if (str.size() == 1 && str == "+") {
+	  		// do nothing
+      }
+      else if (str[0] == '+' && prevIsMorph == true) {
+        	cerr << "POINT a";
             str.erase(str.begin());
-            str = prevClear + str;
-        }
-        else if (str[0] == '+' && prevIsMorph == false) {
+            factor = fc.AddFactor(prevMorph + str, false);
+
+          score -= prev_score;
+      }
+      else if (str[0] == '+' && prevIsMorph == false) {
+          // Treat this as two separate words
+        	cerr << "POINT b";
           str.erase(str.begin()); //Get rid of starting +
-          score += bad_score;
-          wasBad = true;
-        }
-        else if (str[0] != '+' && prevIsMorph == true) {
-          score += bad_score;
-          wasBad = true;
-        }
-        else {
+          factor = fc.AddFactor(str, false);
+      }
+      else if (str[0] != '+' && prevIsMorph == true) {
+          // Treat this as two separate words
+        	cerr << "POINT c";
+      }
+      else {
           //Yay! Easy ... just words
-        }
+        	cerr << "POINT d";
+      }
         
-        if (str[str.length() - 1] == '+') {
+      if (str[str.length() - 1] == '+' && str.length() > 1) {
             str.erase(str.end() - 1);
-            prevIsMorph = true;
             prevMorph = str;
+            prevIsMorph = true;
             //TODO estimate score of the rest
-        }
-        else {
-          prevIsMorph = false;
+      }
+      else {
           prevMorph = "";
-           // TODO: Subtract itermediate?
-        }
+          prevIsMorph = false;
+          //score -= Score(stringContext); //TODO: Double check this is right
+          // TODO: Subtract itermediate?
+      }
     
-    // If the current hypotheis is null, ignore it (just a +, start of this method, etc.)
-    if (str.length() > 0) {
-      stringContext.push_back(str);
-    }
-    if (!wasBad) {
-      score += KneserNey(stringContext);
-    }
-    wasBad = false;
+      // If the current hypotheis is null, ignore it (just a +, start of this method, etc.)
+      if (str.length() > 0) {
+        context.push_back(factor);
+        if (context.size() > m_order) {
+    	  context.erase(context.begin());
+        }
+      }
 
-    //TODO: Subtract 
+      ngramScore = Score(context);
+      score += ngramScore;
 
+      // If it is a morph, pop it off and keep it separate
+      if (prevIsMorph) {
+    	  context.pop_back();
+          prev_score = ngramScore;
+      }
+      else {
+        prev_score = 0.0; // End of a word, don't need to subtract
+      }
+  }
+
+  // is it finished?
+  if (cur_hypo.GetWordsBitmap().IsComplete()) {
+      context.push_back(m_sentenceEnd);
+      if (context.size() > m_order) {
+    	  context.erase(context.begin());
+      }
+      prevMorph = "";
+
+      ngramScore = Score(context);
+      score += ngramScore;
   }
 
   // finished scoring. set score
   accumulator->PlusEquals(this, score);
 
   // TODO: Subtract itermediate?
+  if (context.size() >= m_order) {
+	  context.erase(context.begin());
+  }
+  cerr << "prevMorph=" << prevMorph << endl;
 
-  return new MorphoLMState(context, prevMorph);
+  //std::vector<const Factor*>  context;
+  //SetContext2(stringContext, context);
+
+  assert(context.size() < m_order);
+  return new MorphoLMState(context, prevMorph, prev_score);
 }
 
 FFState* MorphoLM::EvaluateWhenApplied(
@@ -195,29 +275,47 @@ FFState* MorphoLM::EvaluateWhenApplied(
   return NULL;
 }
 
-float MorphoLM::KneserNey(std::vector<string>& context) const
+float MorphoLM::Score(std::vector<const Factor*> context) const
 {
-  float oov = -10000000000.0;
+  assert(context.size() <= m_order);
+
   float backoff = 0.0;
 
-  Node<string, float>* result = root->getProb(context);
+  cerr << "CONTEXT:";
+  for (size_t i = 0; i < context.size(); ++i) {
+	  cerr << context[i]->GetString() << " ";
+  }
+  //std::copy ( context.begin(), context.end(), std::ostream_iterator<string>(std::cerr,", ") );
+  cerr << endl;
 
+  Node<const Factor*, LMScores>* result = root->getNode(context);
 
-  if (result) 
-    return result->getProb();
-  if (context.size() > 1) {
-    std::vector<string> backOffContext(context.begin(), context.end() - 1);
-    
-    result = root->getProb(backOffContext);
-    if (result)
-      backoff = result->getBackOff();
+  float ret = -99999;
+  if (result) {
+	cerr << "HELL A";
+    ret = result->getValue().prob;
+  }
+  else if (context.size() > 1) {
+		cerr << "HELL B";
+	  std::vector<const Factor*> backOffContext(context.begin(), context.end() - 1);
+	  result = root->getNode(backOffContext);
+	  if (result) {
+			cerr << "HELL C";
+		  backoff = result->getValue().backoff;
+	  }
 
-    context.erase(context.begin());
+	  context.erase(context.begin());
 
-    return (backoff + MorphoLM::KneserNey(context));
+	ret = backoff + Score(context);
+  }
+  else {
+		cerr << "HELL D";
+	  assert(context.size() == 1);
+	  ret = m_oov;
   }
   
-  return oov;
+  cerr << "ret=" << ret << endl;
+  return ret;
 }
 
 void MorphoLM::SetParameter(const std::string& key, const std::string& value)
@@ -240,6 +338,24 @@ void MorphoLM::SetParameter(const std::string& key, const std::string& value)
   else {
     StatefulFeatureFunction::SetParameter(key, value);
   }
+}
+
+void MorphoLM::SetContext(std::vector<std::string>  &context, const std::vector<const Factor*> &phrase) const
+{
+	for (size_t i = 0; i < phrase.size(); ++i) {
+		context.push_back(phrase[i]->GetString().as_string());
+	}
+
+}
+
+void MorphoLM::SetContext2(const std::vector<std::string>  &context, std::vector<const Factor*> &phrase) const
+{
+    FactorCollection &fc = FactorCollection::Instance();
+	for (size_t i = 0; i < context.size(); ++i) {
+		const Factor *factor = fc.AddFactor(context[i], false);
+		phrase.push_back(factor);
+	}
+
 }
 
 }

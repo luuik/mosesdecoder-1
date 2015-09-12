@@ -2,84 +2,68 @@
 #define NODE_H_
 
 #include <vector>
-using namespace std;
+#include <boost/unordered_map.hpp>
+#include <boost/foreach.hpp>
 
 template<class KeyClass, class ValueClass> 
 class Node
 {
     public:
-        Node(const KeyClass& key) : key(key), prob(0.f), backoff(0.f) { }
-        Node() { prob = 0.0, backoff = 0.0; }
-        Node(const ValueClass& cProb, const ValueClass& cBackOff) : prob(cProb), backoff(cBackOff) {}
+		Node() { }
+        Node(const ValueClass& value)
+        : m_value(value)
+        {}
         ~Node();
         void setKey(const KeyClass& key);
-        void setProb(const ValueClass& value);
-        void setBackOff(const ValueClass& value);
+        void setValue(const ValueClass& value)
+        {
+        	m_value = value;
+        }
         Node* findSub(const KeyClass& key);
-        void addSubnode(Node* subnode);
+        Node *addSubnode(const KeyClass& cKey)
+        {
+            Node *node = findSub(cKey);
+            if (node) {
+            	return node;
+            }
+            else {
+            	node = new Node();
+            	subNodes[cKey] = node;
+            	return node;
+            }
+        }
 
-        vector<Node*> getSubnodes();
-        ValueClass getProb();
-        ValueClass getBackOff();
+        std::vector<Node*> getSubnodes();
+        const ValueClass &getValue() const
+        { return m_value; }
 
     private:
-        vector<Node*> subnodes;
-        KeyClass key;
-        ValueClass prob;
-        ValueClass backoff;
+        boost::unordered_map<KeyClass, Node*>  subNodes;
+        ValueClass m_value;
 
 };
 
 template<class KeyClass, class ValueClass>
-Node<KeyClass, ValueClass>::~Node() {}
-
-template<class KeyClass, class ValueClass>
-void Node<KeyClass, ValueClass>::setProb(const ValueClass& value)
+Node<KeyClass, ValueClass>::~Node()
 {
-    prob = value;
-}
-
-template<class KeyClass, class ValueClass>
-void Node<KeyClass, ValueClass>::setBackOff(const ValueClass& value)
-{
-    backoff = value;
-}
-
-template<class KeyClass, class ValueClass>
-void Node<KeyClass, ValueClass>::addSubnode(Node<KeyClass, ValueClass>* subnode)
-{
-    subnodes.push_back(subnode);
-}
-
-template<class KeyClass, class ValueClass>
-vector< Node<KeyClass, ValueClass>* > Node<KeyClass, ValueClass>::getSubnodes()
-{
-    return subnodes;
+  typename boost::unordered_map<KeyClass, Node*>::iterator iter;
+  for (iter = subNodes.begin(); iter != subNodes.end(); ++iter) {
+	  Node *node = iter->second;
+	  delete node;
+  }
 }
 
 template<class KeyClass, class ValueClass>
 Node<KeyClass, ValueClass>* Node<KeyClass, ValueClass>::findSub(const KeyClass& cKey)
 {
-    for(size_t i = 0; i < subnodes.size(); ++i)
-    {
-        if (subnodes[i]->key == cKey)
-        {
-            return subnodes[i];
-        }
-    }
+	typename boost::unordered_map<KeyClass, Node*>::iterator iter;
+	iter = subNodes.find(cKey);
+	if (iter != subNodes.end()) {
+		Node *node = iter->second;
+		return node;
+	}
     return NULL;
 }
 
-template<class KeyClass, class ValueClass>
-ValueClass Node<KeyClass, ValueClass>::getProb() 
-{
-    return prob;
-}
-
-template<class KeyClass, class ValueClass>
-ValueClass Node<KeyClass, ValueClass>::getBackOff() 
-{
-    return backoff;
-}
 
 #endif /* end of include guard: NODE_H_ */
