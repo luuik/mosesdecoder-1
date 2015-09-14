@@ -3,11 +3,7 @@
 #include "moses/ScoreComponentCollection.h"
 #include "moses/Hypothesis.h"
 #include "moses/FactorCollection.h"
-#include "moses/InputFileStream.h"
 #include "util/exception.hh"
-
-#include "moses/FF/JoinScore/TrieSearch.h"
-#include "moses/FF/MorphoTrie/MorphTrie.h"
 
 using namespace std;
 
