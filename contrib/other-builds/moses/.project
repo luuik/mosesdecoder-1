@@ -1513,12 +1513,22 @@
 		<link>
 			<name>FF/MorphoLM.cpp</name>
 			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/moses/FF/MorphoLM.cpp</locationURI>
+			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoLM.cpp</locationURI>
 		</link>
 		<link>
 			<name>FF/MorphoLM.h</name>
 			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/moses/FF/MorphoLM.h</locationURI>
+			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoLM.h</locationURI>
+		</link>
+		<link>
+			<name>FF/MorphoSubWordLM.cpp</name>
+			<type>1</type>
+			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoSubWordLM.cpp</locationURI>
+		</link>
+		<link>
+			<name>FF/MorphoSubWordLM.h</name>
+			<type>1</type>
+			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoSubWordLM.h</locationURI>
 		</link>
 		<link>
 			<name>FF/MorphoTrie</name>
