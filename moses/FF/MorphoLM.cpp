@@ -163,10 +163,14 @@ FFState* MorphoLM::EvaluateWhenApplied(
   float prevScore = prevMorphState->GetPrevScore();
 
   vector<const Factor*> context = prevMorphState->GetPhrase();
+  std::vector<std::vector<const Factor*> > splitContext = prevMorphState->GetPhraseSplit();;
 
   //vector<string> stringContext;
   //SetContext(stringContext, prevMorphState->GetPhrase());
   FactorCollection &fc = FactorCollection::Instance();
+
+  std::vector<const Factor*> factorSplits;
+
   for (size_t pos = 0; pos < targetLen; ++pos){
 	  const Word &word = cur_hypo.GetCurrWord(pos);
 	  const Factor *factor = word[m_factorType];
@@ -180,16 +184,27 @@ FFState* MorphoLM::EvaluateWhenApplied(
           currStr.erase(currStr.end() - 1);
 	  }
 
+	  const Factor *wordStem;
+	  const Factor *wordPrefix;
+	  const Factor *wordSuffix;
+
 	  if (isUnfinished) {
+
 		  switch (prefixSuffix) {
 		  case 0:
 			  // a+ b. Invalid. Start new word
+			  wordStem = fc.AddFactor(currStr, false);
+			  factorSplits.push_back(wordStem);
 			  unfinishedWord = "";
 			  factor = fc.AddFactor(currStr, false);
 			  isUnfinished = false;
 			  break;
 		  case 1:
 			  // a+ +b
+			  wordPrefix = fc.AddFactor(unfinishedWord, false);
+			  wordSuffix = fc.AddFactor(currStr, false);
+			  factorSplits.push_back(wordPrefix);
+			  factorSplits.push_back(wordSuffix);
         	  unfinishedWord += currStr;
               factor = fc.AddFactor(unfinishedWord, false);
               unfinishedWord = "";
@@ -198,12 +213,18 @@ FFState* MorphoLM::EvaluateWhenApplied(
 			  break;
 		  case 2:
         	  // a+ b+. Invalid. Start new word
+			  wordPrefix = fc.AddFactor(unfinishedWord, false);
+			  factorSplits.push_back(wordPrefix);
         	  unfinishedWord = currStr;
               factor = fc.AddFactor(currStr, false);
               isUnfinished = true;
 			  break;
 		  case 3:
 			  // a+ +b+.
+			  wordPrefix = fc.AddFactor(unfinishedWord, false);
+			  wordStem = fc.AddFactor(currStr, false);
+			  factorSplits.push_back(wordPrefix);
+			  factorSplits.push_back(wordStem);
         	  unfinishedWord += currStr;
               factor = fc.AddFactor(unfinishedWord, false);
               score -= prevScore;
@@ -217,24 +238,32 @@ FFState* MorphoLM::EvaluateWhenApplied(
 		  switch (prefixSuffix) {
 		  case 0:
 			  // a b
+			  wordStem = fc.AddFactor(currStr, false);
+			  factorSplits.push_back(wordStem);
               factor = fc.AddFactor(currStr, false);
         	  unfinishedWord = currStr;
               isUnfinished = false;
 			  break;
 		  case 1:
 			  // a +b. Invalid. New word
-        	  factor = fc.AddFactor(currStr, false);
+			  wordSuffix = fc.AddFactor(currStr, false);
+			  factorSplits.push_back(wordStem);
+			  factor = fc.AddFactor(currStr, false);
               unfinishedWord = "";
               isUnfinished = false;
 			  break;
 		  case 2:
         	  // a b+. start new unfinished word
-        	  unfinishedWord = currStr;
+			  wordPrefix = fc.AddFactor(unfinishedWord, false);
+			  factorSplits.push_back(wordPrefix);
+			  unfinishedWord = currStr;
         	  factor = fc.AddFactor(unfinishedWord, false);
               isUnfinished = true;
               break;
 		  case 3:
 			  // a +b+. Invalid. Start new word
+			  wordStem = fc.AddFactor(currStr, false);
+			  factorSplits.push_back(wordStem);
         	  unfinishedWord = currStr;
         	  factor = fc.AddFactor(unfinishedWord, false);
               isUnfinished = true;
@@ -245,6 +274,7 @@ FFState* MorphoLM::EvaluateWhenApplied(
       }
 
 	  context.push_back(factor);
+	  splitContext.push_back(factorSplits);
 
 	  // SCORE
 	  if (context.size() > m_order) {
