@@ -30,8 +30,6 @@ struct LMScores
 class MorphoLMState : public FFState
 {
   std::vector<const Factor*> m_lastWords;
-  std::vector<std::vector<const Factor*> > m_lastWordSplits;
-
   std::string m_unfinishedWord;
   float m_prevScore;
 public:
@@ -51,9 +49,6 @@ public:
 
   const std::vector<const Factor*> &GetPhrase() const
   { return m_lastWords; }
-
-  const std::vector<std::vector<const Factor*> > &GetPhraseSplit() const
-   { return m_lastWordSplits; }
 
   bool IsUnfinished() const
   { return !m_unfinishedWord.empty(); }
