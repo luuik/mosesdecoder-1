@@ -18,19 +18,26 @@ if $(with-oxlm) {
   oxlm = ;
 }
 
-with-maxent = [ option.get "with-maxent" ] ; 
+#MAXENT
+local with-maxent = [ option.get "with-maxent" ] ;
 if $(with-maxent) {
-  maxent = <define>WITH_MAXENT <include>$(with-maxent)/src  ;
-} else {
-  maxent = ;
+    maxent-libdir = <search>$(with-maxent)/src/opt  ;
+    lib maxent : : $(maxent-libdir) ;
+    obj FF/MorphoSubWordLM.o : FF/MorphoSubWordLM.cpp maxent : <include>$(with-maxent)/src ;
+    maxent-headers = <include>$(with-maxent)/src ;
+    alias maxent-subwords : FF/MorphoSubWordLM.o maxent ;
+ } else {
+ 	maxent-headers = ;
+    alias maxent-subwords ;
 }
+
 
 local classifier = ;
 if [ option.get "with-vw" ] {
   classifier += ..//vw//classifier ;
 }
 
-alias headers : ../util//kenutil $(classifier) : : : $(max-factors) $(dlib) $(oxlm) $(maxent) ; 
+alias headers : ../util//kenutil $(classifier) : : : $(max-factors) $(dlib) $(oxlm) $(maxent-headers) ; 
 alias ThreadPool : ThreadPool.cpp ;
 alias Util : Util.cpp Timer.cpp ;
 
@@ -95,6 +102,7 @@ if $(with-vw) {
   alias vwfiles ;
 }
 
+
 lib moses :
 [ glob 
   *.cpp
@@ -125,8 +133,9 @@ lib moses :
   SyntacticLanguageModel.cpp
   *Test.cpp Mock*.cpp FF/*Test.cpp
   FF/Factory.cpp
+  FF/MorphoSubWordLM.cpp
 ] 
-vwfiles synlm mmlib mserver headers 
+vwfiles synlm mmlib mserver maxent-subwords headers 
 FF_Factory.o 
 LM//LM 
 TranslationModel/CompactPT//CompactPT 
@@ -137,7 +146,7 @@ ThreadPool
 ..//z 
 ../OnDiskPt//OnDiskPt 
 $(TOP)//boost_filesystem 
-$(TOP)//boost_iostreams 
+$(TOP)//boost_iostreams
 :
 <threading>single:<source>../util//rt
 ;

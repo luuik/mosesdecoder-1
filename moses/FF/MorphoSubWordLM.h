@@ -1,6 +1,7 @@
 #pragma once
 
 #include "moses/FF/MorphoLM.h"
+#include "maxentmodel.hpp"
 
 namespace Moses
 {

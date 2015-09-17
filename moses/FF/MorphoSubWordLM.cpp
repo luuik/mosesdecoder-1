@@ -4,6 +4,7 @@
 #include "moses/Hypothesis.h"
 #include "moses/FactorCollection.h"
 #include "util/exception.hh"
+#include "moses/StaticData.h"
 
 using namespace std;
 
