@@ -23,9 +23,12 @@ local with-maxent = [ option.get "with-maxent" ] ;
 if $(with-maxent) {
     maxent-libdir = <search>$(with-maxent)/src/opt  ;
     lib maxent : : $(maxent-libdir) ;
-    obj FF/MorphoSubWordLM.o : FF/MorphoSubWordLM.cpp maxent : <include>$(with-maxent)/src ;
+    external-lib gfortran ;
+    external-lib quadmath ;
+    external-lib m ;
+    obj FF/MorphoSubWordLM.o : FF/MorphoSubWordLM.cpp maxent : $(max-factors) : <include>$(with-maxent)/src ;
     maxent-headers = <include>$(with-maxent)/src ;
-    alias maxent-subwords : FF/MorphoSubWordLM.o maxent ;
+    alias maxent-subwords : FF/MorphoSubWordLM.o maxent gfortran m quadmath ;
  } else {
  	maxent-headers = ;
     alias maxent-subwords ;
