@@ -7,6 +7,8 @@
 
 namespace Moses
 {
+extern bool g_mosesDebug;
+
 template<typename V, typename VEC>
 class Trie
 {
@@ -40,6 +42,7 @@ public:
   public:
     Children m_children;
 
+	typename VEC::value_type m_prevKey;
     V m_value;
     Node *m_prevChild;
     uint64_t m_filePos;
@@ -47,6 +50,7 @@ public:
 
     Node()
       :m_prevChild(NULL)
+      ,m_filePos(0)
       ,m_saved(false)
     {}
 
@@ -113,10 +117,6 @@ void Trie<V, VEC>::Node::Save(const Parameters &params)
   // write root node;
   size_t numChildren = m_children.size();
   WriteToDisk(outStrme);
-  std::cerr << "Saved root "
-            << m_filePos << "="
-            //<< m_value << "="
-            << numChildren << std::endl;
 
   outStrme.write((char*)&m_filePos, sizeof(m_filePos));
 
@@ -133,11 +133,24 @@ void Trie<V, VEC>::Node::Save(const VEC &line,
   if (pos >= line.size()) {
     m_value = value;
   } else {
+    bool hasPrevKey = m_children.size();
+    
     const typename VEC::value_type &c = line[pos];
+    
+    if (hasPrevKey && c < m_prevKey) {
+      std::cerr << "ERROR: " << c << "<" << m_prevKey << std::endl;
+      abort();
+    }
+    
     Node &child = m_children[c];
 
     if (m_prevChild != &child) {
       // new child
+      if (hasPrevKey && c == m_prevKey) {
+          std::cerr << "ERROR: " << c << "==" << m_prevKey << std::endl;
+          abort();
+      }
+
       child.m_value = params.m_prefixV;
 
       if (m_prevChild) {
@@ -150,6 +163,8 @@ void Trie<V, VEC>::Node::Save(const VEC &line,
     //std::cerr << "Saving " << child.m_value << std::endl;
     // recursively add next char
     child.Save(line, outStrme, pos + 1, params, value);
+
+    m_prevKey = c;
   } // if (pos >= line.size()) {
 } // void Trie<V>::Node::Save(...)
 
@@ -173,19 +188,14 @@ void Trie<V, VEC>::Node::WriteToDisk(std::ostream &outStrme)
   uint64_t numChildren = m_children.size();
   outStrme.write((char*)&numChildren, sizeof(numChildren));
 
-  //std::cerr << "A: " << m_filePos << "=" << m_value << "=" << numChildren << ": " << std::endl;
-
   BOOST_FOREACH(typename Children::value_type &mapPair, m_children) {
     const typename VEC::value_type &key = mapPair.first;
     Node &node = mapPair.second;
     UTIL_THROW_IF2(!node.m_saved, "Child not saved");
 
-    //std::cerr << "B: " << key << "=" << node.m_filePos << " " << std::endl;
     outStrme.write((char*) &key, sizeof(key));
     outStrme.write((char*) &node.m_filePos, sizeof(node.m_filePos));
   }
-
-  //std::cerr << std::endl;
 
   m_saved = true;
 

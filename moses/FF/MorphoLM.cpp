@@ -1,6 +1,8 @@
 #include <vector>
+#include <boost/filesystem.hpp>
 #include "MorphoLM.h"
 #include "moses/ScoreComponentCollection.h"
+#include "moses/StaticData.h"
 #include "moses/Hypothesis.h"
 #include "moses/FactorCollection.h"
 #include "moses/InputFileStream.h"
@@ -63,25 +65,36 @@ const FFState* MorphoLM::EmptyHypothesisState(const InputType &input) const {
 
 void MorphoLM::Load()
 {
-  if (m_binLM) {
-	  m_trieSearch = new TrieSearch<LMScores, NGRAM>;
-	  m_trieSearch->Create(m_path);
+  boost::filesystem::path resolved = boost::filesystem::canonical(m_path);
+  m_binLM = boost::filesystem::is_directory(resolved);
 
+  if (m_binLM) {
 	  // vocab
+	  VERBOSE(1, "Loading vocab");
 	  FactorCollection &fc = FactorCollection::Instance();
 
 	  m_vocab = new std::map<const Factor *, uint64_t>;
+	  m_vocabRev = new std::map<uint64_t, const Factor*>;
 
-	  InputFileStream vocabStrme(m_path + ".vocab");
+	  InputFileStream vocabStrme(m_path + "/vocab.dat");
 	  string line;
+	  uint64_t vocabId = 1;
 	  while (getline(vocabStrme, line)) {
-		  vector<string> toks = Tokenize(line);
-		  assert(toks.size() == 2);
-
-		  const Factor *factor = fc.AddFactor(toks[0], false);
-		  uint64_t vocabId = Scan<uint64_t>(toks[1]);
-		  (*m_vocab)[factor] = vocabId;
+		  if (line == "<unk>") {
+			  m_oovId = vocabId;
+		  }
+		  else {
+			  const Factor *factor = fc.AddFactor(line, false);
+			  (*m_vocab)[factor] = vocabId;
+			  (*m_vocabRev)[vocabId] = factor;
+		  }
+		  ++vocabId;
 	  }
+
+	  // actual lm
+	  VERBOSE(1, "Loading trie");
+	  m_trieSearch = new TrieSearch<LMScores, NGRAM>;
+	  m_trieSearch->Create(m_path + "/lm.dat");
   }
   else {
 	  FactorCollection &fc = FactorCollection::Instance();
@@ -118,8 +131,9 @@ void MorphoLM::Load()
 		  Tokenize(key, substrings[1], " ");
 
 		  vector<const Factor*> factorKey;
-		  for (int i = 0; i < key.size(); ++i)
+		  for (size_t i = 0; i < key.size(); ++i) {
 			  factorKey.push_back(fc.AddFactor(key[i], false));
+		  }
 
 		  root->insert(factorKey, LMScores(prob, backoff));
 	  }
@@ -290,9 +304,6 @@ FFState* MorphoLM::EvaluateWhenApplied(
   }
   //cerr << "unfinishedWord=" << unfinishedWord << endl;
 
-  //std::vector<const Factor*>  context;
-  //SetContext2(stringContext, context);
-
   assert(context.size() < m_order);
   return new MorphoLMState(context, unfinishedWord, prevScore);
 }
@@ -302,6 +313,21 @@ void MorphoLM::DebugContext(const vector<const Factor*> &context) const
     cerr << "CONTEXT:";
     for (size_t i = 0; i < context.size(); ++i) {
   	  cerr << context[i]->GetString() << " ";
+    }
+}
+
+void MorphoLM::DebugContext(const vector<uint64_t> &context) const
+{
+    cerr << "CONTEXT:";
+    for (size_t i = 0; i < context.size(); ++i) {
+      cerr << context[i] << "(";
+      const Factor *factor = GetFactorFromVocabId(context[i]);
+      if (factor) {
+    	  cerr << factor->ToString() << ") ";
+      }
+      else {
+    	  cerr << "UNK) ";
+      }
     }
 }
 
@@ -316,6 +342,23 @@ FFState* MorphoLM::EvaluateWhenApplied(
 
 float MorphoLM::Score(std::vector<const Factor*> context) const
 {
+	float ret;
+	if (m_binLM) {
+		vector<uint64_t> contextVocabId(context.size());
+		for (size_t i = 0; i < context.size(); ++i) {
+			contextVocabId[i] = GetBinVocabId(context[i]);
+		}
+		ret = ScoreBin(contextVocabId);
+	}
+	else {
+		ret = ScoreMem(context);
+	}
+
+	return ret;
+}
+
+float MorphoLM::ScoreMem(std::vector<const Factor*> context) const
+{
   assert(context.size() <= m_order);
 
   float backoff = 0.0;
@@ -328,6 +371,8 @@ float MorphoLM::Score(std::vector<const Factor*> context) const
   }
   else if (context.size() > 1) {
 	  std::vector<const Factor*> backOffContext(context.begin(), context.end() - 1);
+
+	  //DebugContext(backOffContext);
 	  result = root->getNode(backOffContext);
 	  if (result) {
 		  backoff = result->getValue().backoff;
@@ -335,14 +380,48 @@ float MorphoLM::Score(std::vector<const Factor*> context) const
 
 	  context.erase(context.begin());
 
-	ret = backoff + Score(context);
+	ret = backoff + ScoreMem(context);
   }
   else {
 	  assert(context.size() == 1);
 	  ret = m_oov;
   }
-  
+
   return ret;
+}
+
+float MorphoLM::ScoreBin(std::vector<uint64_t> context) const
+{
+  //DebugContext(context);
+  assert(context.size() <= m_order);
+
+  float backoff = 0.0;
+
+  LMScores scores;
+  bool found = m_trieSearch->Find(scores, context);
+
+  float ret = -99999;
+  if (found) {
+	ret = scores.prob;
+  }
+  else if (context.size() > 1) {
+	  std::vector<uint64_t> backOffContext(context.begin(), context.end() - 1);
+
+	  found = m_trieSearch->Find(scores, backOffContext);
+	  if (found) {
+		  backoff = scores.backoff;
+	  }
+
+	  context.erase(context.begin());
+	  ret = backoff + ScoreBin(context);
+  }
+  else {
+	  assert(context.size() == 1);
+	  ret = m_oov;
+  }
+
+  return ret;
+  
 }
 
 void MorphoLM::SetParameter(const std::string& key, const std::string& value)
@@ -358,9 +437,6 @@ void MorphoLM::SetParameter(const std::string& key, const std::string& value)
   }
   else if (key == "marker") {
 	  m_marker = value;
-  }
-  else if (key == "binary") {
-	  m_binLM = Scan<bool>(value);
   }
   else {
     StatefulFeatureFunction::SetParameter(key, value);
@@ -381,6 +457,31 @@ int MorphoLM::GetMarker(const StringPiece &str) const
   }
 
   return ret;
+}
+
+uint64_t MorphoLM::GetBinVocabId(const Factor *factor) const
+{
+	std::map<const Factor*, uint64_t>::const_iterator iter;
+	iter = m_vocab->find(factor);
+	if (iter == m_vocab->end()) {
+		return m_oovId;
+	}
+	else {
+		return iter->second;
+	}
+}
+
+const Factor *MorphoLM::GetFactorFromVocabId(uint64_t vocabId) const
+{
+	std::map<uint64_t, const Factor*>::const_iterator iter;
+	iter = m_vocabRev->find(vocabId);
+	if (iter == m_vocabRev->end()) {
+		return NULL;
+	}
+	else {
+		const Factor *ret = iter->second;
+		return ret;
+	}
 }
 
 }

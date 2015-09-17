@@ -27,6 +27,12 @@ struct LMScores
 	float prob, backoff;
 };
 
+inline std::ostream& operator<<(std::ostream &out, const LMScores &obj)
+{
+	out << "(" << obj.prob << "," << obj.backoff << ")" << flush;
+	return out;
+}
+
 class MorphoLMState : public FFState
 {
   std::vector<const Factor*> m_lastWords;
@@ -81,19 +87,28 @@ protected:
 
     // binary trie
     std::map<const Factor*, uint64_t> *m_vocab;
+    std::map<uint64_t, const Factor*> *m_vocabRev; // for debugging
+    uint64_t m_oovId;
 
     typedef std::vector<uint64_t> NGRAM;
     TrieSearch<LMScores, NGRAM> *m_trieSearch;
 
+
     // in-mem trie
-    MorphTrie<const Factor*, LMScores>* root;
+    MorphTrie<const Factor*, LMScores> *root;
 
     float Score(std::vector<const Factor*> context) const;
+    float ScoreMem(std::vector<const Factor*> context) const;
+    float ScoreBin(std::vector<uint64_t> context) const;
+
+    uint64_t GetBinVocabId(const Factor *factor) const;
+    const Factor *GetFactorFromVocabId(uint64_t vocabId) const;
 
     // +a = 1. a+ = 2. +a+ = 0
     int GetMarker(const StringPiece &str) const;
 
     void DebugContext(const vector<const Factor*> &context) const;
+    void DebugContext(const vector<uint64_t> &context) const;
 public:
   MorphoLM(const std::string &line);
 
