@@ -171,7 +171,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 	    context.erase(context.begin());
 	  }
 
-	  ngramScore = Score(splitContext);
+	  ngramScore = DummyScore(splitContext);
       score += ngramScore;
 
       prevScore = ngramScore;
@@ -193,7 +193,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
       unfinishedWord = "";
       prevScore = 0;
 
-      ngramScore = Score(splitContext);
+      ngramScore = DummyScore(splitContext);
 
       //DebugContext(context);
       //cerr << "ngramScore=" << ngramScore << endl;
@@ -232,6 +232,10 @@ size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*>
 	return modelOrder;
 }
 
+float MorphoSubWordLM::DummyScore(std::vector<std::vector<const Factor*> > &contextSplit) const
+{
+	return -0.1;
+}
 float MorphoSubWordLM::Score(std::vector<std::vector<const Factor*> > &contextSplit) const
 {
 	maxent::MaxentModel::context_type mycontext;
