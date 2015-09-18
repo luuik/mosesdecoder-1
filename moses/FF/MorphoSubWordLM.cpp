@@ -1,5 +1,6 @@
 #include <vector>
 #include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
 #include "moses/ScoreComponentCollection.h"
 #include "moses/Hypothesis.h"
 #include "moses/FactorCollection.h"
@@ -216,10 +217,26 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
   return new MorphoSubWordLMState(context, splitContext, unfinishedWord, prevScore);
 }
 
-float MorphoSubWordLM::Score(std::vector<std::vector<const Factor*> > contextSplit) const
+size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*> > &contextSplit, maxent::MaxentModel::context_type &MEcontext, maxent::MaxentModel::outcome_type &MEoutcome) const
+{
+	size_t modelOrder = contextSplit.size();
+	for (size_t i=contextSplit.size()-1; i>=0; --i) {
+		size_t wordIndex = contextSplit.size()-1-i;
+		for (size_t k = 0; k < contextSplit[i].size(); ++k) {
+			std::string pred =	boost::lexical_cast<std::string>(wordIndex)+"::"+contextSplit[i][k]->GetString().as_string();
+			MEcontext.push_back(make_pair(pred, 1));
+		}
+	}
+	MEoutcome =	contextSplit.back().back()->GetString().as_string();
+
+	return modelOrder;
+}
+
+float MorphoSubWordLM::Score(std::vector<std::vector<const Factor*> > &contextSplit) const
 {
 	maxent::MaxentModel::context_type mycontext;
 	maxent::MaxentModel::outcome_type myoutcome;
+	size_t modelOrder = GetContextOutcome(contextSplit, mycontext, myoutcome);
 
 	return static_cast<float>(m_LM.eval(mycontext,myoutcome));
 }

@@ -28,7 +28,8 @@ class MorphoSubWordLM : public MorphoLM
 {
 protected:
 	maxent::MaxentModel m_LM;
-	float Score(std::vector<std::vector<const Factor*> > contextSplit) const;
+	size_t GetContextOutcome(std::vector<std::vector<const Factor*> > &contextSplit, maxent::MaxentModel::context_type &MEcontext, maxent::MaxentModel::outcome_type &MEoutcome) const;
+	float Score(std::vector<std::vector<const Factor*> > &contextSplit) const;
 public:
 	MorphoSubWordLM(const std::string &line);
 
