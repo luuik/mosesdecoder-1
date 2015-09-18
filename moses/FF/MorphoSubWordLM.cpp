@@ -22,8 +22,10 @@ MorphoSubWordLM::MorphoSubWordLM(const std::string &line)
 const FFState* MorphoSubWordLM::EmptyHypothesisState(const InputType &input) const {
   std::vector<const Factor*> context;
   context.push_back(m_sentenceStart);
-
+  std::vector<const Factor*>  thisIsTheStart;
+  thisIsTheStart.push_back(m_sentenceStart);
   std::vector<std::vector<const Factor*> > contextSplit;
+  contextSplit.push_back(thisIsTheStart);
 
   return new MorphoSubWordLMState(context, contextSplit, "", 0.0);
 }
@@ -59,7 +61,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
   //SetContext(stringContext, prevMorphState->GetPhrase());
   FactorCollection &fc = FactorCollection::Instance();
 
-  std::vector<const Factor*> factorSplits;
+
 
   for (size_t pos = 0; pos < targetLen; ++pos){
 	  const Word &word = cur_hypo.GetCurrWord(pos);
@@ -77,6 +79,8 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 	  const Factor *wordStem;
 	  const Factor *wordPrefix;
 	  const Factor *wordSuffix;
+
+	  std::vector<const Factor*> factorSplits;
 
 	  if (isUnfinished) {
 
@@ -169,9 +173,11 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 	  // SCORE
 	  if (context.size() > m_order) {
 	    context.erase(context.begin());
+	    splitContext.erase(splitContext.begin());
 	  }
 
-	  ngramScore = DummyScore(splitContext);
+	  assert(context.size() == splitContext.size());
+	  ngramScore = Score(splitContext);
       score += ngramScore;
 
       prevScore = ngramScore;
@@ -181,19 +187,25 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 
       if (isUnfinished) {
     	  context.resize(context.size() - 1);
+    	  splitContext.resize(splitContext.size() - 1);
       }
   }
 
   // is it finished?
   if (cur_hypo.GetWordsBitmap().IsComplete()) {
       context.push_back(m_sentenceEnd);
+      std::vector<const Factor*>  thisIsTheEnd;
+      thisIsTheEnd.push_back(m_sentenceEnd);
+      splitContext.push_back(thisIsTheEnd);
       if (context.size() > m_order) {
     	  context.erase(context.begin());
+    	  splitContext.erase(splitContext.begin());
       }
       unfinishedWord = "";
       prevScore = 0;
 
-      ngramScore = DummyScore(splitContext);
+      assert(context.size() == splitContext.size());
+      ngramScore = Score(splitContext);
 
       //DebugContext(context);
       //cerr << "ngramScore=" << ngramScore << endl;
@@ -207,6 +219,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
   // TODO: Subtract itermediate?
   if (context.size() >= m_order) {
 	  context.erase(context.begin());
+	  splitContext.erase(splitContext.begin());
   }
   //cerr << "unfinishedWord=" << unfinishedWord << endl;
 
@@ -214,21 +227,27 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
   //SetContext2(stringContext, context);
 
   assert(context.size() < m_order);
+  assert(context.size() == splitContext.size());
   return new MorphoSubWordLMState(context, splitContext, unfinishedWord, prevScore);
 }
 
 size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*> > &contextSplit, maxent::MaxentModel::context_type &MEcontext, maxent::MaxentModel::outcome_type &MEoutcome) const
 {
 	size_t modelOrder = contextSplit.size();
-	for (size_t i=contextSplit.size()-1; i>=0; --i) {
+	cerr << "Size of contextSplit = " << contextSplit.size() << endl;
+	for (size_t i=0; i<contextSplit.size(); i--) {
+
 		size_t wordIndex = contextSplit.size()-1-i;
-		for (size_t k = 0; k < contextSplit[i].size(); ++k) {
+		cerr << "Size of contextSplit[" << i << "] =" << contextSplit[i].size() << endl;
+		for (size_t k = 0; k < contextSplit[i].size(); k++) {
 			std::string pred =	boost::lexical_cast<std::string>(wordIndex)+"::"+contextSplit[i][k]->GetString().as_string();
-			MEcontext.push_back(make_pair(pred, 1));
+			cerr << "FEAT: " << pred << " , ";
+			//MEcontext.push_back(make_pair(pred, 1));
 		}
 	}
-	MEoutcome =	contextSplit.back().back()->GetString().as_string();
-
+	//MEoutcome
+	std::string label =	contextSplit.back().back()->GetString().as_string();
+	cerr << "LABEL: " << label << endl;
 	return modelOrder;
 }
 
@@ -242,7 +261,8 @@ float MorphoSubWordLM::Score(std::vector<std::vector<const Factor*> > &contextSp
 	maxent::MaxentModel::outcome_type myoutcome;
 	size_t modelOrder = GetContextOutcome(contextSplit, mycontext, myoutcome);
 
-	return static_cast<float>(m_LM.eval(mycontext,myoutcome));
+	//return static_cast<float>(m_LM.eval(mycontext,myoutcome));
+	return DummyScore(contextSplit);
 }
 
 }
