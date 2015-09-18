@@ -1,10 +1,11 @@
 #include <vector>
-#include "MorphoSubWordLM.h"
+#include <boost/filesystem.hpp>
 #include "moses/ScoreComponentCollection.h"
 #include "moses/Hypothesis.h"
 #include "moses/FactorCollection.h"
 #include "util/exception.hh"
 #include "moses/StaticData.h"
+#include "MorphoSubWordLM.h"
 
 using namespace std;
 
@@ -14,8 +15,8 @@ namespace Moses
 MorphoSubWordLM::MorphoSubWordLM(const std::string &line)
 :MorphoLM(line)
 {
-
 }
+
 
 const FFState* MorphoSubWordLM::EmptyHypothesisState(const InputType &input) const {
   std::vector<const Factor*> context;
@@ -28,6 +29,8 @@ const FFState* MorphoSubWordLM::EmptyHypothesisState(const InputType &input) con
 
 void MorphoSubWordLM::Load()
 {
+	boost::filesystem::path resolved = boost::filesystem::canonical(m_path);
+	m_LM.load(resolved.string());
 }
 
 FFState* MorphoSubWordLM::EvaluateWhenApplied(
@@ -215,8 +218,10 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 
 float MorphoSubWordLM::Score(std::vector<std::vector<const Factor*> > contextSplit) const
 {
-	return 1.0;
+	maxent::MaxentModel::context_type mycontext;
+	maxent::MaxentModel::outcome_type myoutcome;
 
+	return static_cast<float>(m_LM.eval(mycontext,myoutcome));
 }
 
 }

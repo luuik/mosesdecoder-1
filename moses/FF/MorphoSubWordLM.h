@@ -9,7 +9,7 @@ namespace Moses
 class MorphoSubWordLMState : public MorphoLMState
 {
 	std::vector<std::vector<const Factor*> > m_lastWordSplits;
-	maxent::MaxentModel m_LM;
+
 public:
   MorphoSubWordLMState(const std::vector<const Factor*> &context,
 		  const std::vector<std::vector<const Factor*> > &contextSplits,
@@ -27,6 +27,7 @@ public:
 class MorphoSubWordLM : public MorphoLM
 {
 protected:
+	maxent::MaxentModel m_LM;
 	float Score(std::vector<std::vector<const Factor*> > contextSplit) const;
 public:
 	MorphoSubWordLM(const std::string &line);
