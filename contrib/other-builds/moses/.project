@@ -6,6 +6,16 @@
 	</projects>
 	<buildSpec>
 		<buildCommand>
+			<name>org.eclipse.ui.externaltools.ExternalToolBuilder</name>
+			<triggers>full,incremental,</triggers>
+			<arguments>
+				<dictionary>
+					<key>LaunchConfigHandle</key>
+					<value>&lt;project&gt;/.externalToolBuilders/make3.launch</value>
+				</dictionary>
+			</arguments>
+		</buildCommand>
+		<buildCommand>
 			<name>org.eclipse.cdt.managedbuilder.core.genmakebuilder</name>
 			<triggers>clean,full,incremental,</triggers>
 			<arguments>
@@ -1513,22 +1523,22 @@
 		<link>
 			<name>FF/MorphoLM.cpp</name>
 			<type>1</type>
-			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoLM.cpp</locationURI>
+			<locationURI>PARENT-3-PROJECT_LOC/moses/FF/MorphoLM.cpp</locationURI>
 		</link>
 		<link>
 			<name>FF/MorphoLM.h</name>
 			<type>1</type>
-			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoLM.h</locationURI>
+			<locationURI>PARENT-3-PROJECT_LOC/moses/FF/MorphoLM.h</locationURI>
 		</link>
 		<link>
 			<name>FF/MorphoSubWordLM.cpp</name>
 			<type>1</type>
-			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoSubWordLM.cpp</locationURI>
+			<locationURI>PARENT-3-PROJECT_LOC/moses/FF/MorphoSubWordLM.cpp</locationURI>
 		</link>
 		<link>
 			<name>FF/MorphoSubWordLM.h</name>
 			<type>1</type>
-			<locationURI>PARENT-9-PROJECT_LOC/home/luuke/myData/myGit/mosesdecoder-1/moses/FF/MorphoSubWordLM.h</locationURI>
+			<locationURI>PARENT-3-PROJECT_LOC/moses/FF/MorphoSubWordLM.h</locationURI>
 		</link>
 		<link>
 			<name>FF/MorphoTrie</name>
@@ -2436,6 +2446,16 @@
 			<locationURI>PARENT-3-PROJECT_LOC/moses/TranslationModel/PhraseDictionaryDynamicCacheBased.h</locationURI>
 		</link>
 		<link>
+			<name>TranslationModel/PhraseDictionaryGroup.cpp</name>
+			<type>1</type>
+			<locationURI>PARENT-3-PROJECT_LOC/moses/TranslationModel/PhraseDictionaryGroup.cpp</locationURI>
+		</link>
+		<link>
+			<name>TranslationModel/PhraseDictionaryGroup.h</name>
+			<type>1</type>
+			<locationURI>PARENT-3-PROJECT_LOC/moses/TranslationModel/PhraseDictionaryGroup.h</locationURI>
+		</link>
+		<link>
 			<name>TranslationModel/PhraseDictionaryMemory.cpp</name>
 			<type>1</type>
 			<locationURI>PARENT-3-PROJECT_LOC/moses/TranslationModel/PhraseDictionaryMemory.cpp</locationURI>
@@ -2464,16 +2484,6 @@
 			<name>TranslationModel/PhraseDictionaryMultiModelCounts.h</name>
 			<type>1</type>
 			<locationURI>PARENT-3-PROJECT_LOC/moses/TranslationModel/PhraseDictionaryMultiModelCounts.h</locationURI>
-		</link>
-		<link>
-			<name>TranslationModel/PhraseDictionaryGroup.cpp</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/moses/TranslationModel/PhraseDictionaryGroup.cpp</locationURI>
-		</link>
-		<link>
-			<name>TranslationModel/PhraseDictionaryGroup.h</name>
-			<type>1</type>
-			<locationURI>PARENT-3-PROJECT_LOC/moses/TranslationModel/PhraseDictionaryGroup.h</locationURI>
 		</link>
 		<link>
 			<name>TranslationModel/PhraseDictionaryNodeMemory.cpp</name>
