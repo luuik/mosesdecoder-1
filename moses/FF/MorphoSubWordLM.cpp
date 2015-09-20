@@ -141,7 +141,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 		  case 1:
 			  // a +b. Invalid. New word
 			  wordSuffix = fc.AddFactor(currStr, false);
-			  factorSplits.push_back(wordStem);
+			  factorSplits.push_back(wordSuffix);
 			  factor = fc.AddFactor(currStr, false);
               unfinishedWord = "";
               isUnfinished = false;
@@ -235,19 +235,20 @@ size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*>
 {
 	size_t modelOrder = contextSplit.size();
 	cerr << "Size of contextSplit = " << contextSplit.size() << endl;
-	for (size_t i=0; i<contextSplit.size(); i--) {
+	for (size_t i=0; i<contextSplit.size(); i++) {
 
 		size_t wordIndex = contextSplit.size()-1-i;
 		cerr << "Size of contextSplit[" << i << "] =" << contextSplit[i].size() << endl;
 		for (size_t k = 0; k < contextSplit[i].size(); k++) {
-			std::string pred =	boost::lexical_cast<std::string>(wordIndex)+"::"+contextSplit[i][k]->GetString().as_string();
-			cerr << "FEAT: " << pred << " , ";
+			//std::string predorder =	boost::lexical_cast<std::string>(wordIndex);
+			std::string pred = "::"+contextSplit[i][k]->GetString().as_string();
+			cerr << "FEAT: " << wordIndex << pred << " , " << endl;
 			//MEcontext.push_back(make_pair(pred, 1));
 		}
 	}
 	//MEoutcome
-	std::string label =	contextSplit.back().back()->GetString().as_string();
-	cerr << "LABEL: " << label << endl;
+	//std::string label =	contextSplit.back().back()->GetString().as_string();
+	//cerr << "LABEL: " << label << endl;
 	return modelOrder;
 }
 
