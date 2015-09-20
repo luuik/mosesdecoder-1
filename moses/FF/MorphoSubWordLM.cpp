@@ -232,7 +232,13 @@ size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*>
 
 		size_t wordIndex = contextSplit.size()-1-i;
 		cerr << "Size of contextSplit[" << i << "] =" << contextSplit[i].size() << endl;
-		for (size_t k = 0; k < contextSplit[i].size(); k++) {
+
+		// very last morpheme is the LABEL, not a FEATURE
+		size_t maxK =  contextSplit[i].size();
+		if (i==contextSplit.size()-1) {
+			maxK -= 1;
+		}
+		for (size_t k = 0; k < maxK; k++) {
 			//std::string predorder =	boost::lexical_cast<std::string>(wordIndex);
 			std::string pred = "::"+contextSplit[i][k]->GetString().as_string();
 			cerr << "FEAT: " << wordIndex << pred << " , " << endl;
@@ -240,8 +246,8 @@ size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*>
 		}
 	}
 	//MEoutcome
-	//std::string label =	contextSplit.back().back()->GetString().as_string();
-	//cerr << "LABEL: " << label << endl;
+	std::string label =	contextSplit.back().back()->GetString().as_string();
+	cerr << "LABEL: " << label << endl;
 	return modelOrder;
 }
 
