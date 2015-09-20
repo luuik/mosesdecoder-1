@@ -100,9 +100,9 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  break;
 		  case 2:
         	  // a+ b+. Invalid. Start new word
+			  unfinishedWord = currStr;
 			  wordPrefix = fc.AddFactor(unfinishedWord, false);
 			  factorSplits.push_back(wordPrefix);
-        	  unfinishedWord = currStr;
               factor = fc.AddFactor(currStr, false);
               isUnfinished = true;
 			  break;
@@ -141,9 +141,9 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  break;
 		  case 2:
         	  // a b+. start new unfinished word
+			  unfinishedWord = currStr;
 			  wordPrefix = fc.AddFactor(unfinishedWord, false);
 			  factorSplits.push_back(wordPrefix);
-			  unfinishedWord = currStr;
         	  factor = fc.AddFactor(unfinishedWord, false);
               isUnfinished = true;
               break;
