@@ -69,13 +69,6 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 	  string currStr = factor->GetString().as_string();
 	  int prefixSuffix = GetMarker(factor->GetString());
 
-	  if (prefixSuffix & 1) {
-	      currStr.erase(currStr.begin());
-	  }
-	  if (prefixSuffix & 2) {
-          currStr.erase(currStr.end() - 1);
-	  }
-
 	  const Factor *wordStem;
 	  const Factor *wordPrefix;
 	  const Factor *wordSuffix;
