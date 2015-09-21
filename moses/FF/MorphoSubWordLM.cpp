@@ -242,12 +242,13 @@ size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*>
 			//std::string predorder =	boost::lexical_cast<std::string>(wordIndex);
 			std::string pred = "::"+contextSplit[i][k]->GetString().as_string();
 			cerr << "FEAT: " << wordIndex << pred << " , " << endl;
-			//MEcontext.push_back(make_pair(pred, 1));
+			MEcontext.push_back(make_pair(pred, 1));
 		}
 	}
 	//MEoutcome
 	std::string label =	contextSplit.back().back()->GetString().as_string();
 	cerr << "LABEL: " << label << endl;
+	MEoutcome = label;
 	return modelOrder;
 }
 
@@ -261,7 +262,9 @@ float MorphoSubWordLM::Score(std::vector<std::vector<const Factor*> > &contextSp
 	maxent::MaxentModel::outcome_type myoutcome;
 	size_t modelOrder = GetContextOutcome(contextSplit, mycontext, myoutcome);
 
-	//return static_cast<float>(m_LM.eval(mycontext,myoutcome));
+	float MEmodelScore = static_cast<float>(m_LM.eval(mycontext,myoutcome));
+
+	cerr << "MEmodelScore = " << MEmodelScore << endl;
 	return DummyScore(contextSplit);
 }
 
