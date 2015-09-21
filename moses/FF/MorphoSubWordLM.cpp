@@ -34,6 +34,7 @@ const FFState* MorphoSubWordLM::EmptyHypothesisState(const InputType &input) con
 void MorphoSubWordLM::Load()
 {
 	boost::filesystem::path resolved = boost::filesystem::canonical(m_path);
+	cerr << "LOADING MODEL " <<  resolved.string() << endl;
 	m_LM.load(resolved.string());
 }
 
@@ -236,7 +237,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
   return new MorphoSubWordLMState(context, splitContext, unfinishedWord, unfinishedSplitWord, prevScore);
 }
 
-size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*> > &contextSplit, maxent::MaxentModel::context_type &MEcontext, maxent::MaxentModel::outcome_type &MEoutcome) const
+size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*> > &contextSplit, std::vector<std::string> &MEcontext, std::string &MEoutcome) const
 {
 	size_t modelOrder = contextSplit.size();
 	cerr << "Size of contextSplit = " << contextSplit.size() << endl;
@@ -254,7 +255,9 @@ size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*>
 			//std::string predorder =	boost::lexical_cast<std::string>(wordIndex);
 			std::string pred = "::"+contextSplit[i][k]->GetString().as_string();
 			cerr << "FEAT: " << wordIndex << pred << " , " << endl;
-			MEcontext.push_back(make_pair(pred, 1));
+			std::stringstream myfeature;
+			myfeature << wordIndex << "::" << contextSplit[i][k]->GetString().as_string();
+			MEcontext.push_back(myfeature.str());
 		}
 	}
 	//MEoutcome
@@ -270,11 +273,17 @@ float MorphoSubWordLM::DummyScore(std::vector<std::vector<const Factor*> > &cont
 }
 float MorphoSubWordLM::Score(std::vector<std::vector<const Factor*> > &contextSplit) const
 {
-	maxent::MaxentModel::context_type mycontext;
-	maxent::MaxentModel::outcome_type myoutcome;
+	std::vector<std::string > mycontext;
+	std::string myoutcome;
 	size_t modelOrder = GetContextOutcome(contextSplit, mycontext, myoutcome);
 
-	float MEmodelScore = static_cast<float>(m_LM.eval(mycontext,myoutcome));
+	for (size_t i=0; i<mycontext.size(); i++){
+		cerr << "ME FEAT= [" << mycontext[i] << "]" << endl;
+	}
+
+	cerr << "ME LABEL= [" << myoutcome << "]" << endl;
+
+	double MEmodelScore = m_LM.eval(mycontext,myoutcome);
 
 	cerr << "MEmodelScore = " << MEmodelScore << endl;
 	return DummyScore(contextSplit);
