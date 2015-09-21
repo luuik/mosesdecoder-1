@@ -26,8 +26,9 @@ const FFState* MorphoSubWordLM::EmptyHypothesisState(const InputType &input) con
   thisIsTheStart.push_back(m_sentenceStart);
   std::vector<std::vector<const Factor*> > contextSplit;
   contextSplit.push_back(thisIsTheStart);
+  std::vector<const Factor*> unfinishedContext;
 
-  return new MorphoSubWordLMState(context, contextSplit, "", 0.0);
+  return new MorphoSubWordLMState(context, contextSplit, "", unfinishedContext, 0.0);
 }
 
 void MorphoSubWordLM::Load()
@@ -52,6 +53,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 
   bool isUnfinished = prevMorphState->IsUnfinished();
   string unfinishedWord = prevMorphState->GetUnfinishedWord();
+  vector<const Factor*> unfinishedSplitWord = prevMorphState->GetUnfinishedSplitWord();
   float prevScore = prevMorphState->GetPrevScore();
 
   vector<const Factor*> context = prevMorphState->GetPhrase();
@@ -83,14 +85,14 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  wordStem = fc.AddFactor(currStr, false);
 			  factorSplits.push_back(wordStem);
 			  unfinishedWord = "";
+			  unfinishedSplitWord.clear();
 			  factor = fc.AddFactor(currStr, false);
 			  isUnfinished = false;
 			  break;
 		  case 1:
 			  // a+ +b
-			  wordPrefix = fc.AddFactor(unfinishedWord, false);
+			  factorSplits = unfinishedSplitWord;
 			  wordSuffix = fc.AddFactor(currStr, false);
-			  factorSplits.push_back(wordPrefix);
 			  factorSplits.push_back(wordSuffix);
         	  unfinishedWord += currStr;
               factor = fc.AddFactor(unfinishedWord, false);
@@ -103,16 +105,18 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  unfinishedWord = currStr;
 			  wordPrefix = fc.AddFactor(unfinishedWord, false);
 			  factorSplits.push_back(wordPrefix);
+			  unfinishedSplitWord.clear();
+			  unfinishedSplitWord.push_back(wordPrefix);
               factor = fc.AddFactor(currStr, false);
               isUnfinished = true;
 			  break;
 		  case 3:
 			  // a+ +b+.
-			  wordPrefix = fc.AddFactor(unfinishedWord, false);
+			  factorSplits = unfinishedSplitWord;
 			  wordStem = fc.AddFactor(currStr, false);
-			  factorSplits.push_back(wordPrefix);
 			  factorSplits.push_back(wordStem);
-        	  unfinishedWord += currStr;
+			  unfinishedSplitWord.push_back(wordStem);
+			  unfinishedWord += currStr;
               factor = fc.AddFactor(unfinishedWord, false);
               score -= prevScore;
               isUnfinished = true;
@@ -129,6 +133,8 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  factorSplits.push_back(wordStem);
               factor = fc.AddFactor(currStr, false);
         	  unfinishedWord = currStr;
+        	  unfinishedSplitWord.clear();
+        	  unfinishedSplitWord.push_back(wordStem);
               isUnfinished = false;
 			  break;
 		  case 1:
@@ -137,6 +143,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  factorSplits.push_back(wordSuffix);
 			  factor = fc.AddFactor(currStr, false);
               unfinishedWord = "";
+              unfinishedSplitWord.clear();
               isUnfinished = false;
 			  break;
 		  case 2:
@@ -144,6 +151,8 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  unfinishedWord = currStr;
 			  wordPrefix = fc.AddFactor(unfinishedWord, false);
 			  factorSplits.push_back(wordPrefix);
+			  unfinishedSplitWord.clear();
+			  unfinishedSplitWord.push_back(wordPrefix);
         	  factor = fc.AddFactor(unfinishedWord, false);
               isUnfinished = true;
               break;
@@ -152,6 +161,8 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 			  wordStem = fc.AddFactor(currStr, false);
 			  factorSplits.push_back(wordStem);
         	  unfinishedWord = currStr;
+        	  unfinishedSplitWord.clear();
+        	  unfinishedSplitWord.push_back(wordStem);
         	  factor = fc.AddFactor(unfinishedWord, false);
               isUnfinished = true;
 			  break;
@@ -195,6 +206,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
     	  splitContext.erase(splitContext.begin());
       }
       unfinishedWord = "";
+      unfinishedSplitWord.clear();
       prevScore = 0;
 
       assert(context.size() == splitContext.size());
@@ -221,7 +233,7 @@ FFState* MorphoSubWordLM::EvaluateWhenApplied(
 
   assert(context.size() < m_order);
   assert(context.size() == splitContext.size());
-  return new MorphoSubWordLMState(context, splitContext, unfinishedWord, prevScore);
+  return new MorphoSubWordLMState(context, splitContext, unfinishedWord, unfinishedSplitWord, prevScore);
 }
 
 size_t MorphoSubWordLM::GetContextOutcome(std::vector<std::vector<const Factor*> > &contextSplit, maxent::MaxentModel::context_type &MEcontext, maxent::MaxentModel::outcome_type &MEoutcome) const

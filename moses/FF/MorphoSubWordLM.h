@@ -9,11 +9,12 @@ namespace Moses
 class MorphoSubWordLMState : public MorphoLMState
 {
 	std::vector<std::vector<const Factor*> > m_lastWordSplits;
+	std::vector<const Factor*> m_unfinishedSplitWord;
 
 public:
   MorphoSubWordLMState(const std::vector<const Factor*> &context,
 		  const std::vector<std::vector<const Factor*> > &contextSplits,
-		  	  const std::string &unfinished, float prevScore)
+		  	  const std::string &unfinished, const std::vector<const Factor*> &unfinishedSplit, float prevScore)
     :	MorphoLMState(context,unfinished,prevScore)
     	,m_lastWordSplits(contextSplits)
   {
@@ -21,6 +22,11 @@ public:
 
   const std::vector<std::vector<const Factor*> > &GetPhraseSplit() const
    { return m_lastWordSplits; }
+
+  const std::vector<const Factor*> &GetUnfinishedSplitWord() const
+   {
+ 	  return m_unfinishedSplitWord;
+   }
 
 };
 
